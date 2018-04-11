@@ -1,89 +1,80 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "lp9khzFilter.h"
-
 #include <stdio.h>
 #include <assert.h>
- 
-#include "make_wav.h"
- 
-void intToFloat( int16_t *input, double *output, int length )
-{
-    int i;
- 
-    for ( i = 0; i < length; i++ ) {
-        output[i] = (double)input[i];
-    }
-}
- 
-void floatToInt( double *input, int16_t *output, int length )
-{
-    int i;
- 
-    for ( i = 0; i < length; i++ ) {
-        if ( input[i] > 32767.0 ) {
-            input[i] = 32767.0;
-        } else if ( input[i] < -32768.0 ) {
-            input[i] = -32768.0;
-        }
-        // convert
-        output[i] = (int16_t)input[i];
-    }
-}
+#include <unistd.h>
+#include <libgen.h>
+#include "lp9khzFilter.h"
+#define DR_WAV_IMPLEMENTATION
+#include "dr_wav.h"
 
-lp9khzFilter LPF;
-#define GRANULARITY 4096
-
-int main( void )
+int main(int argc, char * argv[])
 {
-    FILE   *in_fid;
-    FILE   *out_fid;
-	int size;
-    int16_t input[GRANULARITY];
-    int16_t output[GRANULARITY];
-    double floatInput[GRANULARITY];
-    double floatOutput[GRANULARITY];
+	char prefix[] = "filtered-";	
+	char * ifname = argv[1];
+	
+	if( argc < 1 || argc > 2 || access( ifname, F_OK ) == -1 )
+	{
+		printf("Usage: filter path/to/file.wav\n");
+		return -1;
+	} 
+	
+	char * ofname = (char *)malloc(strlen(prefix) + strlen(ifname) + 1);
+    if (ofname == NULL) 
+	{
+		printf("Could not allocate memory.\n");
+		return -1;
+    } 
+	strcpy(ofname, prefix);
+	strcat(ofname, basename(ifname));
 
- 
-    // open the input waveform file
-    in_fid = fopen( "signal.wav", "rb" );
-    if ( in_fid == 0 ) {
-        printf("couldn't open signal.wav\n");
-        return -1;
-    }
- 
-    // open the output waveform file
-    out_fid = fopen( "filtered-signal.wav", "wb" );
-    if ( out_fid == 0 ) {
-        printf("couldn't open filtered-signal.wav\n");
-        return -1;
-    }
- 
     // initialize the filter
+	lp9khzFilter LPF;
     lp9khzFilter_init(&LPF);
- 
-    // process all of the samples
-    do {
-		int i;
-        // read samples from file
-        size = fread( input, sizeof(int16_t), GRANULARITY, in_fid );
-        // convert to doubles
-        intToFloat( input, floatInput, size );
-        // perform the filtering
-		
-		for(i=0; i<GRANULARITY; i++)
-		{
-			lp9khzFilter_put(&LPF, floatInput[i]);
-			floatOutput[i] = lp9khzFilter_get(&LPF);
-		}
-        // convert to ints
-        floatToInt( floatOutput, output, size );
-        // write samples to file
-        fwrite( output, sizeof(int16_t), size, out_fid );
-    } while ( size != 0 );
- 
-    fclose( in_fid );
-    fclose( out_fid );
- 
+
+	// open the input file
+	drwav* wavIn = drwav_open_file(ifname);
+    if (wavIn == NULL) 
+	{
+		printf("Could not open %s\n", ifname);
+		return 0;
+    } 
+
+	// allocate memory for input/output buffers
+	float * input = (float*)malloc((size_t)wavIn->totalSampleCount * sizeof(float));
+	float * output = (float*)malloc((size_t)wavIn->totalSampleCount * sizeof(float));
+    if (input == NULL || output == NULL) 
+	{
+		printf("Could not allocate memory.\n");
+		return -1;
+    } 
+
+	printf("Total sample count: %ld\n", wavIn->totalSampleCount);	
+	drwav_read_f32(wavIn, wavIn->totalSampleCount, input);
+
+	// apply filter
+	for(int i = 0; i < wavIn->totalSampleCount; i++)
+	{
+		// although the file may be s16, s32 etc. this read call outputs f32, very convenient
+		lp9khzFilter_put(&LPF, input[i]);
+		output[i] = lp9khzFilter_get(&LPF);
+	}
+
+	// open, configure and write output file
+	drwav_data_format format;
+	format.container = drwav_container_riff;
+	format.format = DR_WAVE_FORMAT_PCM;
+	format.channels = wavIn->fmt.channels;
+	format.sampleRate = wavIn->fmt.sampleRate;
+	format.bitsPerSample = wavIn->fmt.bitsPerSample;
+	printf("ofname=%s\n", ofname);
+	drwav * wavOut = drwav_open_file_write(ofname, &format);
+	drwav_uint64 samplesWritten = drwav_write(wavOut, wavIn->totalSampleCount, output);
+	printf("Wrote %ld samples\n", samplesWritten);
+
+	// close files
+	drwav_close(wavIn);
+	drwav_close(wavOut);
+
     return 0;
 }

@@ -1,0 +1,16 @@
+# build.ninja
+cc     = gcc
+cflags = -Wall
+
+rule compile
+  command = $cc $cflags -c $in -o $out
+
+rule link
+  command = $cc $in -o $out
+
+#build dr_wav.o: compile dr_wav.c
+build fir.o: compile fir.c
+build lp9khzFilter.o: compile lp9khzFilter.c
+build filter: link fir.o lp9khzFilter.o
+
+default filter

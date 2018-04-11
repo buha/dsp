@@ -4,32 +4,59 @@ import matplotlib.pyplot as plt
 import wave
 import struct
 
-# Parametrization
-rate = 31250 # samples per second
-duration = 2.0 # seconds
-A = 30000
-f = 50.0 # carrier frequency, Hz
-phi = 0 # carrier phase, radians
-Am = 2767
-fm = 11000.0 # modulator frequency, Hz
-phim = 180.0 * np.pi / 180.0 # modulator frequency, radians
+class sine:
+    def __init__(self, amplitude=16384, frequency=50., phase=0., duration=1., rate=44100):
+        self.a = abs(amplitude)
+        self.f = frequency # hertz
+        self.p = phase * np.pi / 180.0 # radians
+        assert duration > 0
+        self.d = duration # seconds
+        assert rate > 0
+        self.r = rate # samples per second
+        self.t = np.arange(self.r * self.d) / self.r # time table based on duration and sampling rate
+        self.__components = []
 
-# 
-t = np.arange(rate * duration) / rate
-modulator = Am * np.sin(2.0 * np.pi * fm * t + phim) 
-carrier = A * np.sin(2.0 * np.pi * f * t + phi) 
-output = np.zeros_like(modulator)
-output = carrier + modulator
-np.clip(output, -32768, 32767)
+    def fundamental(self):
+        return self.a * np.sin(2.0 * np.pi * self.f * self.t + self.p)
+
+    def component(self, amplitude, frequency, phase):
+        self.__components.append({'amplitude': amplitude, 'frequency': frequency, 'phase': phase * np.pi / 180.0})
+
+    def components(self):
+        return [c['amplitude'] * np.sin(2.0 * np.pi * c['frequency'] * self.t + c['phase']) for c in self.__components]
+
+    def time(self):
+        return self.t
+
+    def wave(self):
+        wave = self.fundamental()
+        for c in self.__components:
+            component = c['amplitude'] * np.sin(2.0 * np.pi * c['frequency'] * self.t + c['phase'])
+            wave = np.add(wave, component)
+        return wave
+
+    def rate(self):
+        return self.r
+
+signal = sine(amplitude=16384, 
+              frequency=50, 
+              phase=90, 
+              duration=2.0, 
+              rate=31250)
 
 # Write signal to file
 wavef = wave.open('signal.wav','w')
 wavef.setnchannels(1) # mono
 wavef.setsampwidth(2) 
-wavef.setframerate(rate)
+wavef.setframerate(signal.rate())
 
-for i, time in enumerate(t):
-    data = struct.pack('<h', int(output[i]))
+signal.component(2000, 8765, 90)
+signal.component(1000, 9234, 0)
+signal.component(3000, 10500, 270)
+signal.component(4000, 11234, 120)
+
+for sample in signal.wave():
+    data = struct.pack('<h', int(sample))
     wavef.writeframesraw( data )
 
 wavef.writeframes(b'')
@@ -38,16 +65,17 @@ wavef.close()
 # Plot signal
 plot1 = plt.subplot(3, 1, 1)
 plt.title('Sine with harmonics')
-plt.plot(carrier)
-plt.ylabel('Carrier signal')
+plt.plot(signal.fundamental())
+plt.ylabel('Fundamental')
 
 plt.subplot(3, 1, 2, sharex=plot1, sharey=plot1)
-plt.plot(modulator)
-plt.ylabel('Modulator signal')
+#for c in sine.components():
+#    plt.plot(c)
+plt.ylabel('Harmonic')
 
 plt.subplot(3, 1, 3, sharex=plot1, sharey=plot1)
-plt.plot(output)
-plt.ylabel('Output signal')
+plt.plot(signal.wave())
+plt.ylabel('Combined')
 
 plt.show()
 

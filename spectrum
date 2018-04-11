@@ -54,11 +54,10 @@ def main():
     win = np.hamming(N)
     freq, s_dbfs = dbfft(signal[0:N], fs, win)
 
-    # Scale from dBFS to dB
-    K = 0
-    s_db = s_dbfs + K
+    peaks = peakutils.indexes(s_dbfs, thres=0.5, min_dist=N/64)
 
-    peaks = peakutils.indexes(s_db, thres=0.5, min_dist=N/64)
+    # Scale attenuation relative to to fundamental power
+    s_db = s_dbfs - s_dbfs[peaks[0]]
 
     fig = plt.figure()
     ax1 = fig.add_subplot(111)

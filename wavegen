@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+import numpy as np
+import matplotlib.pyplot as plt
+import wave
+import struct
+
+# Parametrization
+rate = 31250 # samples per second
+duration = 2.0 # seconds
+A = 30000
+f = 50.0 # carrier frequency, Hz
+phi = 0 # carrier phase, radians
+Am = 2767
+fm = 11000.0 # modulator frequency, Hz
+phim = 180.0 * np.pi / 180.0 # modulator frequency, radians
+
+# 
+t = np.arange(rate * duration) / rate
+modulator = Am * np.sin(2.0 * np.pi * fm * t + phim) 
+carrier = A * np.sin(2.0 * np.pi * f * t + phi) 
+output = np.zeros_like(modulator)
+output = carrier + modulator
+np.clip(output, -32768, 32767)
+
+# Write signal to file
+wavef = wave.open('signal.wav','w')
+wavef.setnchannels(1) # mono
+wavef.setsampwidth(2) 
+wavef.setframerate(rate)
+
+for i, time in enumerate(t):
+    data = struct.pack('<h', int(output[i]))
+    wavef.writeframesraw( data )
+
+wavef.writeframes(b'')
+wavef.close()
+
+# Plot signal
+plot1 = plt.subplot(3, 1, 1)
+plt.title('Sine with harmonics')
+plt.plot(carrier)
+plt.ylabel('Carrier signal')
+
+plt.subplot(3, 1, 2, sharex=plot1, sharey=plot1)
+plt.plot(modulator)
+plt.ylabel('Modulator signal')
+
+plt.subplot(3, 1, 3, sharex=plot1, sharey=plot1)
+plt.plot(output)
+plt.ylabel('Output signal')
+
+plt.show()
+
+

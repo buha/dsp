@@ -1,0 +1,78 @@
+#!/usr/bin/python3
+
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.io.wavfile as wf
+import sys
+import peakutils
+
+plt.close('all')
+
+def dbfft(x, fs, win=None, ref=32768):
+    """
+    Calculate spectrum in dB scale
+    Args:
+        x: input signal
+        fs: sampling frequency
+        win: vector containing window samples (same length as x).
+             If not provided, then rectangular window is used by default.
+        ref: reference value used for dBFS scale. 32768 for int16 and 1 for float
+
+    Returns:
+        freq: frequency vector
+        s_db: spectrum in dB scale
+    """
+
+    N = len(x)  # Length of input sequence
+
+    if win is None:
+        win = np.ones(1, N)
+    if len(x) != len(win):
+            raise ValueError('Signal and window must be of the same length')
+    x = x * win
+
+    # Calculate real FFT and frequency vector
+    sp = np.fft.rfft(x)
+    freq = np.arange((N / 2) + 1) / (float(N) / fs)
+
+    # Scale the magnitude of FFT by window and factor of 2,
+    # because we are using half of FFT spectrum.
+    s_mag = np.abs(sp) * 2 / np.sum(win)
+
+    # Convert to dBFS
+    s_dbfs = 20 * np.log10(s_mag/ref)
+
+    return freq, s_dbfs
+
+
+def main():
+    # Load the file
+    fs, signal = wf.read(sys.argv[1])
+
+    # Take slice
+    N = 8192
+    win = np.hamming(N)
+    freq, s_dbfs = dbfft(signal[0:N], fs, win)
+
+    # Scale from dBFS to dB
+    K = 0
+    s_db = s_dbfs + K
+
+    peaks = peakutils.indexes(s_db, thres=0.5, min_dist=N/64)
+
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax1.plot(freq, s_db)
+    ticks = [0.0]
+    for peak in peaks:
+        roundpeak = round(freq[peak], 3)
+        ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
+        ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
+        plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB") 
+    ax1.grid(True)
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Attenuation [dB]')
+    plt.show()
+
+if __name__ == "__main__":
+    main()

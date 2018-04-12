@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 """spectrum
-A script that plots the spectrum of a .wav file by performing an FFT.
+A script that plots the spectrum of one or more .wav files using FFT.
 
 Usage:
-    spectrum [--fftsize=FFTSIZE] [--peaks] FILE                                                                                                                                                                 
+    spectrum [--fftsize=FFTSIZE] [--peaks] FILE...
     spectrum (-v | --version)
     spectrum (-h | --help)
 
@@ -16,7 +16,8 @@ Options:
 
 Example:
     spectrum file.wav
-    spectrum --fftsize 8096 --autodetect file1.wav 
+    spectrum file1.wav file2.wav file3.wav
+    spectrum --fftsize 8096 --autodetect file1.wav
 """
 
 import sys
@@ -88,33 +89,48 @@ def dbfft(x, rate, win=None, ref=32768):
 
 def main(args):
 
-    # Load the file
-    rate, signal = wf.read(args['FILE'])
-
-    channels = len(signal[0])
     fig = plt.figure()
     fig.canvas.set_window_title(sys.argv[0])
-    for channel in range(channels):
-        # Take slice
-        N = int(args['--fftsize'])
-        win = np.hamming(N)
-        freq, s_dbfs = dbfft(signal[:, channel][0:N], rate)
 
-        peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/128)
+    # Load the files
+    # This creates a list of tuples
+    # [(sample rate, data), ... ]
+    wavs = [wf.read(f) for f in args['FILE']]
 
-        # Scale attenuation relative to to fundamental power
-        s_db = s_dbfs - s_dbfs[peaks[0]]
+    for n, wav in enumerate(wavs):
+        try:
+            # multi channel
+            channels = len(wav[1][0])
+        except TypeError:
+            # single channel
+            channels = 1
 
-        ax1 = fig.add_subplot(111)
-        ax1.plot(freq, s_db, label=args['FILE'] + ', channel ' + str(channel))
-        ticks = [0.0]
-        if args['--peaks'] is True:
-            for peak in peaks:
-                roundpeak = round(freq[peak], 3)
-                ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
-                ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
-                plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB") 
-        
+        for channel in range(channels):
+            # Take slice
+            N = int(args['--fftsize'])
+            win = np.hamming(N)
+
+            if channels > 1:
+                freq, s_dbfs = dbfft(wav[1][:, channel][0:N], wav[0])
+            else:
+                freq, s_dbfs = dbfft(wav[1][0:N], wav[0])
+
+            peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/128)
+
+            # Scale attenuation relative to to fundamental power
+            s_db = s_dbfs - s_dbfs[peaks[0]]
+
+            ax1 = fig.add_subplot(111)
+            ax1.plot(freq, s_db, label=args['FILE'][n] + ', channel ' + str(channel))
+            ticks = [0.0]
+            if args['--peaks'] is True:
+                for peak in peaks:
+                    roundpeak = round(freq[peak], 3)
+                    # This clogs up the interface when plotting multiple files with multiple channels.
+                    # ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
+                    # ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
+                    plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB")
+
     ax1.axhline(-40, color='slategray', linestyle='-.', linewidth=1)
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('Attenuation [dB]')

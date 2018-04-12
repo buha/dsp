@@ -46,12 +46,12 @@ try:
 except ImportError:
     exit("This software refuses to run until peakutils is installed:\n$ pip install peakutils")
 
-def dbfft(x, fs, win=None, ref=32768):
+def dbfft(x, rate, win=None, ref=32768):
     """
     Calculate spectrum in dB scale
     Args:
         x: input signal
-        fs: sampling frequency
+        rate: sampling frequency
         win: vector containing window samples (same length as x).
              If not provided, then rectangular window is used by default.
         ref: reference value used for dBFS scale. 32768 for int16 and 1 for float
@@ -71,7 +71,7 @@ def dbfft(x, fs, win=None, ref=32768):
 
     # Calculate real FFT and frequency vector
     sp = np.fft.rfft(x)
-    freq = np.arange((N / 2) + 1) / (float(N) / fs)
+    freq = np.arange((N / 2) + 1) / (float(N) / rate)
 
     # Scale the magnitude of FFT by window and factor of 2,
     # because we are using half of FFT spectrum.
@@ -89,12 +89,12 @@ def dbfft(x, fs, win=None, ref=32768):
 def main(args):
 
     # Load the file
-    fs, signal = wf.read(args['FILE'])
+    rate, signal = wf.read(args['FILE'])
 
     # Take slice
     N = int(args['--fftsize'])
     win = np.hamming(N)
-    freq, s_dbfs = dbfft(signal[0:N], fs)
+    freq, s_dbfs = dbfft(signal[0:N], rate)
 
     peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/128)
 

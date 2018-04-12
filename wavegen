@@ -91,8 +91,8 @@ def main(args):
     signal.component(3000, 10500, 270)
     signal.component(4000, 11234, 120)
 
-    for channel in args['--channels']:
-        for sample in signal.wave():
+    for sample in signal.wave():
+        for channel in range(int(args['--channels'])):
             # little endian, short (2 byte)
             data = struct.pack('<h', int(sample))
             wavef.writeframesraw( data )

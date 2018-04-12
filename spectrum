@@ -1,12 +1,50 @@
 #!/usr/bin/python3
+"""spectrum
+A script that plots the spectrum of a .wav file by performing an FFT.
 
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.io.wavfile as wf
+Usage:
+    spectrum [--fftsize=FFTSIZE] [--peaks] FILE                                                                                                                                                                 
+    spectrum (-v | --version)
+    spectrum (-h | --help)
+
+Options:
+    -h --help           Show this screen.
+    -v --version        Show version.
+    --fftsize=FFTSIZE  FFT size [default: 8096]
+    --peaks             Autodetect peaks in the frequency domain
+                        and highlight them on the plot.
+
+Example:
+    spectrum file.wav
+    spectrum --fftsize 8096 --autodetect file1.wav 
+"""
+
 import sys
-import peakutils
 
-plt.close('all')
+try:
+    from docopt import docopt
+except ImportError:
+    exit("This software refuses to run until docopt is installed:\n$ pip install docopt")
+
+try:
+    import numpy as np
+except ImportError:
+    exit("This software refuses to run until numpy is installed:\n$ pip install numpy")
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    exit("This software refuses to run until matplotlib is installed:\n$ pip install matplotlib")
+
+try:
+    import scipy.io.wavfile as wf
+except ImportError:
+    exit("This software refuses to run until scipy is installed:\n$ pip install scipy")
+
+try:
+    import peakutils
+except ImportError:
+    exit("This software refuses to run until peakutils is installed:\n$ pip install peakutils")
 
 def dbfft(x, fs, win=None, ref=32768):
     """
@@ -48,12 +86,13 @@ def dbfft(x, fs, win=None, ref=32768):
     return freq, s_dbfs
 
 
-def main():
+def main(args):
+
     # Load the file
-    fs, signal = wf.read(sys.argv[1])
+    fs, signal = wf.read(args['FILE'])
 
     # Take slice
-    N = 4096
+    N = int(args['--fftsize'])
     win = np.hamming(N)
     freq, s_dbfs = dbfft(signal[0:N], fs)
 
@@ -66,11 +105,12 @@ def main():
     ax1 = fig.add_subplot(111)
     ax1.plot(freq, s_db)
     ticks = [0.0]
-    for peak in peaks:
-        roundpeak = round(freq[peak], 3)
-        ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
-        ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
-        plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB") 
+    if args['--peaks'] is True:
+        for peak in peaks:
+            roundpeak = round(freq[peak], 3)
+            ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
+            ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
+            plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB") 
     
     ax1.axhline(-40, color='slategray', linestyle='-.', linewidth=1)
     plt.xlabel('Frequency [Hz]')
@@ -78,4 +118,5 @@ def main():
     plt.show()
 
 if __name__ == "__main__":
-    main()
+    args = docopt(__doc__, version='0.1')
+    main(args)

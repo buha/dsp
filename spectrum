@@ -91,30 +91,34 @@ def main(args):
     # Load the file
     rate, signal = wf.read(args['FILE'])
 
-    # Take slice
-    N = int(args['--fftsize'])
-    win = np.hamming(N)
-    freq, s_dbfs = dbfft(signal[0:N], rate)
-
-    peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/128)
-
-    # Scale attenuation relative to to fundamental power
-    s_db = s_dbfs - s_dbfs[peaks[0]]
-
+    channels = len(signal[0])
     fig = plt.figure()
-    ax1 = fig.add_subplot(111)
-    ax1.plot(freq, s_db)
-    ticks = [0.0]
-    if args['--peaks'] is True:
-        for peak in peaks:
-            roundpeak = round(freq[peak], 3)
-            ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
-            ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
-            plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB") 
-    
+    fig.canvas.set_window_title(sys.argv[0])
+    for channel in range(channels):
+        # Take slice
+        N = int(args['--fftsize'])
+        win = np.hamming(N)
+        freq, s_dbfs = dbfft(signal[:, channel][0:N], rate)
+
+        peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/128)
+
+        # Scale attenuation relative to to fundamental power
+        s_db = s_dbfs - s_dbfs[peaks[0]]
+
+        ax1 = fig.add_subplot(111)
+        ax1.plot(freq, s_db, label=args['FILE'] + ', channel ' + str(channel))
+        ticks = [0.0]
+        if args['--peaks'] is True:
+            for peak in peaks:
+                roundpeak = round(freq[peak], 3)
+                ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
+                ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
+                plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB") 
+        
     ax1.axhline(-40, color='slategray', linestyle='-.', linewidth=1)
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('Attenuation [dB]')
+    plt.legend()
     plt.show()
 
 if __name__ == "__main__":

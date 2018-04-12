@@ -57,7 +57,7 @@ def main():
     win = np.hamming(N)
     freq, s_dbfs = dbfft(signal[0:N], fs)
 
-    peaks = peakutils.indexes(s_dbfs, thres=0.5, min_dist=N/128)
+    peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/128)
 
     # Scale attenuation relative to to fundamental power
     s_db = s_dbfs - s_dbfs[peaks[0]]
@@ -71,7 +71,8 @@ def main():
         ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
         ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
         plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB") 
-    ax1.grid(True)
+    
+    ax1.axhline(-40, color='slategray', linestyle='-.', linewidth=1)
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('Attenuation [dB]')
     plt.show()

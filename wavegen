@@ -1,8 +1,42 @@
 #!/usr/bin/python3
-import numpy as np
-import matplotlib.pyplot as plt
+"""wavgen
+A tool to generate signals with frequency components and write them to .wav files.
+
+Usage:
+    wavgen [--channels=CH] [--plot] FILE
+    wavgen (-v | --version)
+    wavgen (-h | --help)
+
+Options:
+    -h --help           Show this screen.
+    -v --version        Show version.
+    --channels=CH       Specifies the number of channels of the .wav file. [default: 1]
+                        Channels are populated with the same data.
+    --plot              Plot the signals.
+
+Example:
+    wavgen signal.wav
+    wavgen --channels 2 --plot signal.wav
+"""
+
+
 import wave
 import struct
+
+try:
+    from docopt import docopt
+except ImportError:
+    exit("This software refuses to run until docopt is installed:\n$ pip install docopt")
+
+try:
+    import numpy as np
+except ImportError:
+    exit("This software refuses to run until numpy is installed:\n$ pip install numpy")
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    exit("This software refuses to run until matplotlib is installed:\n$ pip install matplotlib")
 
 class sine:
     def __init__(self, amplitude=16384, frequency=50., phase=0., duration=1., rate=44100):
@@ -38,45 +72,54 @@ class sine:
     def rate(self):
         return self.r
 
-signal = sine(amplitude=16384, 
-              frequency=50, 
-              phase=90, 
-              duration=2.0, 
-              rate=31250)
+def main(args):
+    print(args)
+    signal = sine(amplitude=16384, 
+                  frequency=50, 
+                  phase=90, 
+                  duration=2.0, 
+                  rate=31250)
 
-# Write signal to file
-wavef = wave.open('signal.wav','w')
-wavef.setnchannels(1) # mono
-wavef.setsampwidth(2) 
-wavef.setframerate(signal.rate())
+    # Write signal to file
+    wavef = wave.open(args['FILE'],'w')
+    wavef.setnchannels(int(args['--channels'])) 
+    wavef.setsampwidth(2) 
+    wavef.setframerate(signal.rate())
 
-signal.component(2000, 8765, 90)
-signal.component(1000, 9234, 0)
-signal.component(3000, 10500, 270)
-signal.component(4000, 11234, 120)
+    signal.component(2000, 8765, 90)
+    signal.component(1000, 9234, 0)
+    signal.component(3000, 10500, 270)
+    signal.component(4000, 11234, 120)
 
-for sample in signal.wave():
-    data = struct.pack('<h', int(sample))
-    wavef.writeframesraw( data )
+    for channel in args['--channels']:
+        for sample in signal.wave():
+            # little endian, short (2 byte)
+            data = struct.pack('<h', int(sample))
+            wavef.writeframesraw( data )
 
-wavef.writeframes(b'')
-wavef.close()
+    wavef.writeframes(b'')
+    wavef.close()
+    
+    if args['--plot'] is False:
+        return 0
 
-# Plot signal
-plot1 = plt.subplot(3, 1, 1)
-plt.title('Sine with harmonics')
-plt.plot(signal.fundamental())
-plt.ylabel('Fundamental')
+    # Plot signal
+    plot1 = plt.subplot(3, 1, 1)
+    plt.title('Sine with harmonics')
+    plt.plot(signal.fundamental())
+    plt.ylabel('Fundamental')
 
-plt.subplot(3, 1, 2, sharex=plot1, sharey=plot1)
-#for c in sine.components():
-#    plt.plot(c)
-plt.ylabel('Harmonic')
+    plot2 = plt.subplot(3, 1, 2, sharex=plot1, sharey=plot1)
+    #for c in sine.components():
+    #    plot2.plot(c)
+    plt.ylabel('Harmonic')
 
-plt.subplot(3, 1, 3, sharex=plot1, sharey=plot1)
-plt.plot(signal.wave())
-plt.ylabel('Combined')
+    plt.subplot(3, 1, 3, sharex=plot1, sharey=plot1)
+    plt.plot(signal.wave())
+    plt.ylabel('Combined')
 
-plt.show()
+    plt.show()
 
-
+if __name__ == "__main__":
+    args = docopt(__doc__, version='0.1')
+    main(args)

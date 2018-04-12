@@ -41,8 +41,8 @@ int main(int argc, char * argv[])
     } 
 
 	// allocate memory for input/output buffers
-	float * input = (float*)malloc((size_t)wavIn->totalSampleCount * sizeof(float));
-	float * output = (float*)malloc((size_t)wavIn->totalSampleCount * sizeof(float));
+	int16_t * input = (int16_t*)malloc((size_t)wavIn->totalSampleCount * sizeof(int16_t));
+	int16_t * output = (int16_t*)malloc((size_t)wavIn->totalSampleCount * sizeof(int16_t));
     if (input == NULL || output == NULL) 
 	{
 		printf("Could not allocate memory.\n");
@@ -50,12 +50,11 @@ int main(int argc, char * argv[])
     } 
 
 	printf("Total sample count: %ld\n", wavIn->totalSampleCount);	
-	drwav_read_f32(wavIn, wavIn->totalSampleCount, input);
+	drwav_read_s16(wavIn, wavIn->totalSampleCount, input);
 
 	// apply filter
 	for(int i = 0; i < wavIn->totalSampleCount; i++)
 	{
-		// although the file may be s16, s32 etc. this read call outputs f32, very convenient
 		lp9khzFilter_put(&LPF, input[i]);
 		output[i] = lp9khzFilter_get(&LPF);
 	}

@@ -25,11 +25,11 @@ def dbfft(x, fs, win=None, ref=32768):
 
     N = len(x)  # Length of input sequence
 
-    if win is None:
+    if win is not None:
         win = np.ones(1, N)
-    if len(x) != len(win):
+        if len(x) != len(win):
             raise ValueError('Signal and window must be of the same length')
-    x = x * win
+        x = x * win
 
     # Calculate real FFT and frequency vector
     sp = np.fft.rfft(x)
@@ -37,7 +37,10 @@ def dbfft(x, fs, win=None, ref=32768):
 
     # Scale the magnitude of FFT by window and factor of 2,
     # because we are using half of FFT spectrum.
-    s_mag = np.abs(sp) * 2 / np.sum(win)
+    if win is not None:
+        s_mag = np.abs(sp) * 2 / np.sum(win)
+    else:
+        s_mag =  np.abs(sp) * 2
 
     # Convert to dBFS
     s_dbfs = 20 * np.log10(s_mag/ref)
@@ -50,11 +53,11 @@ def main():
     fs, signal = wf.read(sys.argv[1])
 
     # Take slice
-    N = 8192
+    N = 4096
     win = np.hamming(N)
-    freq, s_dbfs = dbfft(signal[0:N], fs, win)
+    freq, s_dbfs = dbfft(signal[0:N], fs)
 
-    peaks = peakutils.indexes(s_dbfs, thres=0.5, min_dist=N/64)
+    peaks = peakutils.indexes(s_dbfs, thres=0.5, min_dist=N/128)
 
     # Scale attenuation relative to to fundamental power
     s_db = s_dbfs - s_dbfs[peaks[0]]

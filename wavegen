@@ -59,6 +59,9 @@ class sine:
     def components(self):
         return [c['amplitude'] * np.sin(2.0 * np.pi * c['frequency'] * self.t + c['phase']) for c in self.__components]
 
+    def descriptors(self):
+        return self.__components
+
     def time(self):
         return self.t
 
@@ -73,7 +76,6 @@ class sine:
         return self.r
 
 def main(args):
-    print(args)
     signal = sine(amplitude=16384, 
                   frequency=50, 
                   phase=90, 
@@ -87,6 +89,7 @@ def main(args):
     wavef.setframerate(signal.rate())
 
     signal.component(2000, 8765, 90)
+    signal.component(5000, 5000, 90)
     signal.component(1000, 9234, 0)
     signal.component(3000, 10500, 270)
     signal.component(4000, 11234, 120)
@@ -110,8 +113,10 @@ def main(args):
     plt.ylabel('Fundamental')
 
     plot2 = plt.subplot(3, 1, 2, sharex=plot1, sharey=plot1)
-    #for c in sine.components():
-    #    plot2.plot(c)
+    d = signal.descriptors()
+    for i, c in enumerate(signal.components()):
+        plot2.plot(c, label='{} Hz, {} degrees'.format(d[i]['frequency'], np.ceil(d[i]['phase'] * 180 / np.pi )))
+        plot2.legend()
     plt.ylabel('Harmonic')
 
     plt.subplot(3, 1, 3, sharex=plot1, sharey=plot1)

@@ -115,7 +115,7 @@ def main(args):
             else:
                 freq, s_dbfs = dbfft(wav[1][0:N], wav[0])
 
-            peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/128)
+            peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/512)
 
             # Scale attenuation relative to to fundamental power
             s_db = s_dbfs - s_dbfs[peaks[0]]

@@ -1,5 +1,5 @@
-#ifndef LP9KHZFILTER_H_
-#define LP9KHZFILTER_H_
+#ifndef FILTER_H_
+#define FILTER_H_
 
 /*
 
@@ -20,16 +20,16 @@ sampling frequency: 31250 Hz
 
 */
 
-#define LP9KHZFILTER_TAP_NUM 50
+#define FILTER_TAP_NUM 50
 
 typedef struct {
-  double history[LP9KHZFILTER_TAP_NUM];
+  double history[FILTER_TAP_NUM];
   unsigned int last_index;
-} lp9khzFilter;
+} Filter;
 
-void lp9khzFilter_init(lp9khzFilter* f);
-void lp9khzFilter_put(lp9khzFilter* f, double input);
-double lp9khzFilter_get(lp9khzFilter* f);
+void Filter_init(Filter* f);
+void Filter_put(Filter* f, double input);
+double Filter_get(Filter* f);
 
 #endif
 

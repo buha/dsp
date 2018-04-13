@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <libgen.h>
-#include "lp9khzFilter.h"
+#include "Filter.h"
 #define DR_WAV_IMPLEMENTATION
 #include "dr_wav.h"
 
@@ -29,8 +29,8 @@ int main(int argc, char * argv[])
 	strcat(ofname, basename(ifname));
 
     // initialize the filter
-	lp9khzFilter LPF;
-    lp9khzFilter_init(&LPF);
+	Filter LPF;
+    Filter_init(&LPF);
 
 	// open the input file
 	drwav* wavIn = drwav_open_file(ifname);
@@ -55,8 +55,8 @@ int main(int argc, char * argv[])
 	// apply filter
 	for(int i = 0; i < wavIn->totalSampleCount; i++)
 	{
-		lp9khzFilter_put(&LPF, input[i]);
-		output[i] = lp9khzFilter_get(&LPF);
+		Filter_put(&LPF, input[i]);
+		output[i] = Filter_get(&LPF);
 	}
 
 	// open, configure and write output file

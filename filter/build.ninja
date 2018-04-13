@@ -1,0 +1,15 @@
+# build.ninja
+cc     = gcc
+cflags = -Wall -Ilib -IFilter
+
+rule compile
+  command = $cc $cflags -c $in -o $out
+
+rule link
+  command = $cc $in -o $out
+
+build obj/main.o: compile main.c
+build obj/Filter.o: compile Filter/Filter.c
+build filter: link obj/main.o obj/Filter.o
+
+default filter

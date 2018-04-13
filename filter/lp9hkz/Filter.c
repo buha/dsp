@@ -1,6 +1,6 @@
-#include "lp9khzFilter.h"
+#include "Filter.h"
 
-static double filter_taps[LP9KHZFILTER_TAP_NUM] = {
+static double filter_taps[FILTER_TAP_NUM] = {
   0.009946748262632829,
   -0.0004420042728980889,
   -0.014953307817692385,
@@ -53,24 +53,24 @@ static double filter_taps[LP9KHZFILTER_TAP_NUM] = {
   0.009946748262632829
 };
 
-void lp9khzFilter_init(lp9khzFilter* f) {
+void Filter_init(Filter* f) {
   int i;
-  for(i = 0; i < LP9KHZFILTER_TAP_NUM; ++i)
+  for(i = 0; i < FILTER_TAP_NUM; ++i)
     f->history[i] = 0;
   f->last_index = 0;
 }
 
-void lp9khzFilter_put(lp9khzFilter* f, double input) {
+void Filter_put(Filter* f, double input) {
   f->history[f->last_index++] = input;
-  if(f->last_index == LP9KHZFILTER_TAP_NUM)
+  if(f->last_index == FILTER_TAP_NUM)
     f->last_index = 0;
 }
 
-double lp9khzFilter_get(lp9khzFilter* f) {
+double Filter_get(Filter* f) {
   double acc = 0;
   int index = f->last_index, i;
-  for(i = 0; i < LP9KHZFILTER_TAP_NUM; ++i) {
-    index = index != 0 ? index-1 : LP9KHZFILTER_TAP_NUM-1;
+  for(i = 0; i < FILTER_TAP_NUM; ++i) {
+    index = index != 0 ? index-1 : FILTER_TAP_NUM-1;
     acc += f->history[index] * filter_taps[i];
   };
   return acc;

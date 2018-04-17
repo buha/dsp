@@ -3,14 +3,15 @@
 A script that plots the spectrum of one or more .wav files using FFT.
 
 Usage:
-    spectrum [--fftsize=FFTSIZE] [--peaks] FILE...
+    spectrum [--fftsize=FFTSIZE] [--peaks] [--window] FILE...
     spectrum (-v | --version)
     spectrum (-h | --help)
 
 Options:
     -h --help           Show this screen.
     -v --version        Show version.
-    --fftsize=FFTSIZE  FFT size [default: 8096]
+    --fftsize=FFTSIZE   FFT size 
+    --hamming
     --peaks             Autodetect peaks in the frequency domain
                         and highlight them on the plot.
 
@@ -59,9 +60,8 @@ def dbfft(x, rate, win=None, ref=32768):
     """
 
     N = len(x)  # Length of input sequence
-
+    
     if win is not None:
-        win = np.ones(1, N)
         if len(x) != len(win):
             raise ValueError('Signal and window must be of the same length')
         x = x * win
@@ -99,11 +99,17 @@ def main(args):
 
         for channel in range(channels):
             # Take slice
-            N = int(args['--fftsize'])
+            try:
+                N = int(args['--fftsize'])
+            except TypeError:
+                N = int(len(signal) / channels)
             win = np.hamming(N)
 
-            freq, s_dbfs = dbfft(signal[channel::channels], framerate)
-            print(signal[channel:10:channels])
+            if args['--window'] is True:
+                freq, s_dbfs = dbfft(signal[channel::channels][0:N], framerate, win)
+            else:
+                freq, s_dbfs = dbfft(signal[channel::channels][0:N], framerate)
+            
             peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/512)
 
             # Scale attenuation relative to to fundamental power

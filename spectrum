@@ -21,6 +21,7 @@ Example:
 """
 
 import sys
+import wave
 
 try:
     from docopt import docopt
@@ -36,11 +37,6 @@ try:
     import matplotlib.pyplot as plt
 except ImportError:
     exit("This software refuses to run until matplotlib is installed:\n$ pip install matplotlib")
-
-try:
-    import scipy.io.wavfile as wf
-except ImportError:
-    exit("This software refuses to run until scipy is installed:\n$ pip install scipy")
 
 try:
     import peakutils
@@ -93,28 +89,21 @@ def main(args):
     fig.canvas.set_window_title(sys.argv[0])
 
     # Load the files
-    # This creates a list of tuples
-    # [(sample rate, data), ... ]
-    wavs = [wf.read(f) for f in args['FILE']]
+    wavs = [wave.open(f) for f in args['FILE']]
 
     for n, wav in enumerate(wavs):
-        try:
-            # multi channel
-            channels = len(wav[1][0])
-        except TypeError:
-            # single channel
-            channels = 1
+        data = wav.readframes(-1)
+        signal = np.fromstring(data, 'Int16')
+        channels = wav.getnchannels()
+        framerate = wav.getframerate()
 
         for channel in range(channels):
             # Take slice
             N = int(args['--fftsize'])
             win = np.hamming(N)
 
-            if channels > 1:
-                freq, s_dbfs = dbfft(wav[1][:, channel][0:N], wav[0])
-            else:
-                freq, s_dbfs = dbfft(wav[1][0:N], wav[0])
-
+            freq, s_dbfs = dbfft(signal[channel::channels], framerate)
+            print(signal[channel:10:channels])
             peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/512)
 
             # Scale attenuation relative to to fundamental power

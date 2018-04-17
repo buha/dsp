@@ -22,6 +22,7 @@ Example:
 
 import wave
 import struct
+import random 
 
 try:
     from docopt import docopt
@@ -88,11 +89,10 @@ def main(args):
     wavef.setsampwidth(2) 
     wavef.setframerate(signal.rate())
 
-    signal.component(2000, 8765, 90)
-    signal.component(5000, 5000, 90)
-    signal.component(1000, 9234, 0)
-    signal.component(3000, 10500, 270)
-    signal.component(4000, 11234, 120)
+    for f in range(9000, 11480, 80):
+        ph = 90 * random.randrange(0, 3, 2)
+        a = random.randrange(100, 300, 2)
+        signal.component(a, f, ph)
 
     for sample in signal.wave():
         for channel in range(int(args['--channels'])):

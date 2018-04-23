@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-""" datplot
-Plot data from TI .dat format produced using CCS memory dump 
+"""Plot data from TI .dat format produced using CCS memory dump 
 feature of the debugger.
 
 Usage:
-    datplot (--int32|--uint32|--double) FILE...
+    datplot (--int32|--uint32|--float|--double) FILE...
     datplot (-v | --version)
     datplot (-h | --help)
 
@@ -13,15 +12,17 @@ Options:
     -v --version        Show version.
     --int32             Interpret data as 32-bit signed int.
     --uint32            Interpret data as 32-bit unsigned int.
+    --float             Interpret data as 32-bit single precision floating point.
     --double            Interpret data as 64-bit double precision floating point.
 
 Example:
     datplot --double path/to/file
+    datplot --uint32 path/to/file1 path/to/file2
 """
 
 import sys
 import struct
-
+from os.path import basename
 try:
     from docopt import docopt
 except ImportError:
@@ -34,35 +35,41 @@ except ImportError:
     exit("This software refuses to run until matplotlib is installed:\n$ pip install matplotlib")
 
 def main(args):
-    Y = []
-    for n, line in enumerate(open(args['FILE'][0], 'r')):
-        if n > 0: # firstTI .dat line is irrelevant, skip it
-            v = None
-            try:
-                hexstr = line[2:].split()
-                if args['--int32'] is True:
-                    v = struct.unpack('!l', bytes.fromhex(hexstr[0]))
-                elif args['--uint32'] is True:
-                    v = struct.unpack('!L', bytes.fromhex(hexstr[0]))
-                elif args['--double'] is True:
-                    v = struct.unpack('!d', bytes.fromhex(hexstr[0]))
-                else:
-                    pass
-            except (TypeError, struct.error) as e:
-                print(str(e))
-                print("Having troubles understanding the file.\nTry changing the data format with --int32 or --double.")
-                return 0
-            Y.append(v)
-
+    
     ax=plt.gca()
     ax.get_yaxis().get_major_formatter().set_scientific(False)
 
-    X = range(len(Y)-1)
+    for f in args['FILE']:
+        Y = []
+        for n, line in enumerate(open(f, 'r')):
+            if n > 0: # firstTI .dat line is irrelevant, skip it
+                v = None
+                try:
+                    hexstr = line[2:].split()
+                    if args['--int32'] is True:
+                        v = struct.unpack('!l', bytes.fromhex(hexstr[0]))
+                    elif args['--uint32'] is True:
+                        v = struct.unpack('!L', bytes.fromhex(hexstr[0]))
+                    elif args['--float'] is True:
+                        v = struct.unpack('!f', bytes.fromhex(hexstr[0]))
+                    elif args['--double'] is True:
+                        v = struct.unpack('!d', bytes.fromhex(hexstr[0]))
+                except (TypeError, struct.error) as e:
+                    print(str(e))
+                    print("I'm having troubles understanding the file.\nTry changing the data format with --int32, --uint32 or --double.")
+                    return 0
 
-    # due to what seems to be a matplotlib bug, this doesn't work
-    # ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%x"))
+                Y.append(v)
 
-    plt.plot(Y)
+
+        X = range(len(Y)-1)
+
+        # due to what seems to be a matplotlib bug, this doesn't work
+        # ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%x"))
+
+        plt.plot(Y, label=basename(f))
+
+    plt.legend()
     plt.show()
 
 if __name__ == "__main__":

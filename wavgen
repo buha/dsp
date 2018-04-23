@@ -3,7 +3,7 @@
 A tool to generate signals with frequency components and write them to .wav files.
 
 Usage:
-    wavgen [--channels=CH] [--plot] FILE
+    wavgen [--channels=CH] FILE
     wavgen (-v | --version)
     wavgen (-h | --help)
 
@@ -12,11 +12,10 @@ Options:
     -v --version        Show version.
     --channels=CH       Specifies the number of channels of the .wav file. [default: 1]
                         Channels are populated with the same data.
-    --plot              Plot the signals.
 
 Example:
     wavgen signal.wav
-    wavgen --channels 2 --plot signal.wav
+    wavgen --channels 2 signal.wav
 """
 
 
@@ -77,7 +76,7 @@ class sine:
         return self.r
 
 def main(args):
-    signal = sine(amplitude=16384, 
+    signal = sine(amplitude=5000, 
                   frequency=50, 
                   phase=90, 
                   duration=2.0, 
@@ -89,41 +88,23 @@ def main(args):
     wavef.setsampwidth(2) 
     wavef.setframerate(signal.rate())
 
-    for f in range(9000, 11480, 80):
+    for f in range(5000, 11480, 25):
         ph = 90 * random.randrange(0, 3, 2)
-        a = random.randrange(100, 300, 2)
-        signal.component(a, f, ph)
+        a = random.randrange(500, 800, 2)
+        signal.component(500, f, ph)
 
     for sample in signal.wave():
         for channel in range(int(args['--channels'])):
+            if sample > 32767:
+                sample = 32767
+            if sample < -32768:
+                sample = -32768
             # little endian, short (2 byte)
             data = struct.pack('<h', int(sample))
             wavef.writeframesraw( data )
 
     wavef.writeframes(b'')
     wavef.close()
-    
-    if args['--plot'] is False:
-        return 0
-
-    # Plot signal
-    plot1 = plt.subplot(3, 1, 1)
-    plt.title('Sine with harmonics')
-    plt.plot(signal.fundamental())
-    plt.ylabel('Fundamental')
-
-    plot2 = plt.subplot(3, 1, 2, sharex=plot1, sharey=plot1)
-    d = signal.descriptors()
-    for i, c in enumerate(signal.components()):
-        plot2.plot(c, label='{} Hz, {} degrees'.format(d[i]['frequency'], np.ceil(d[i]['phase'] * 180 / np.pi )))
-        plot2.legend()
-    plt.ylabel('Harmonic')
-
-    plt.subplot(3, 1, 3, sharex=plot1, sharey=plot1)
-    plt.plot(signal.wave())
-    plt.ylabel('Combined')
-
-    plt.show()
 
 if __name__ == "__main__":
     args = docopt(__doc__, version='0.1')

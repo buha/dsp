@@ -3,13 +3,15 @@
 feature of the debugger.
 
 Usage:
-    datplot (--int32|--uint32|--float|--double) FILE...
+    datplot (--int16|--uint16|--int32|--uint32|--float|--double) FILE...
     datplot (-v | --version)
     datplot (-h | --help)
 
 Options:
     -h --help           Show this screen.
     -v --version        Show version.
+    --int16             Interpret data as 16-bit signed int.
+    --uint16            Interpret data as 16-bit unsigned int.
     --int32             Interpret data as 32-bit signed int.
     --uint32            Interpret data as 32-bit unsigned int.
     --float             Interpret data as 32-bit single precision floating point.
@@ -46,7 +48,11 @@ def main(args):
                 v = None
                 try:
                     hexstr = line[2:].split()
-                    if args['--int32'] is True:
+                    if args['--int16'] is True:
+                        v = struct.unpack('!h', bytes.fromhex(hexstr[0]))
+                    elif args['--uint16'] is True:
+                        v = struct.unpack('!H', bytes.fromhex(hexstr[0]))
+                    elif args['--int32'] is True:
                         v = struct.unpack('!l', bytes.fromhex(hexstr[0]))
                     elif args['--uint32'] is True:
                         v = struct.unpack('!L', bytes.fromhex(hexstr[0]))
@@ -56,7 +62,7 @@ def main(args):
                         v = struct.unpack('!d', bytes.fromhex(hexstr[0]))
                 except (TypeError, struct.error) as e:
                     print(str(e))
-                    print("I'm having troubles understanding the file.\nTry changing the data format with --int32, --uint32 or --double.")
+                    print("I'm having troubles understanding the file.\nTry changing the data format.") 
                     return 0
 
                 Y.append(v)

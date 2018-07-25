@@ -3,7 +3,7 @@
 feature of the debugger.
 
 Usage:
-    datplot (--int16|--uint16|--int32|--uint32|--float|--double) [--start=<START>] [--step=<STEP>] FILE...
+    datplot (--int16|--uint16|--int32|--uint32|--float|--double) [--start <START>] [--step <STEP>] [(--wav --rate <RATE>)] FILE...
     datplot (-v | --version)
     datplot (-h | --help)
 
@@ -16,17 +16,30 @@ Options:
     --uint32            Interpret data as 32-bit unsigned int.
     --float             Interpret data as 32-bit single precision floating point.
     --double            Interpret data as 64-bit double precision floating point.
-    --start=<START>     Start index [default: 0].
-    --step=<STEP>       Step index [default: 1].
+    --start <START>     Start index [default: 0].
+    --step <STEP>       Step index [default: 1].
+    --wav               Do .wav conversion for further analysis with standard tools.
+    --rate <RATE>       Sampling rate.
 
 Example:
+    # plot file by interpretting samples as double
     datplot --double path/to/file
+
+    # plot file1 and file2 by interpretting samples as unsigned integers 32-bit wide
     datplot --uint32 path/to/file1 path/to/file2
+
+    # plot file by interpretting samples as signed integers 16-bit wide
+    # start at sample 0 with a step of 2 (discards samples 1, 3, ...)
+ 
+    # plot file by interpretting samples as 32-bit float
+    # and create a path/to/file.wav containing the waveform
+    datplot --float path/to/file.dat --wav --rate 7812.5
 """
 
 import sys
 import struct
-from os.path import basename
+import wave
+from os.path import basename, dirname, realpath, splitext
 
 try:
     from docopt import docopt
@@ -42,27 +55,51 @@ except ImportError:
 def main(args):
     ax=plt.gca()
     ax.get_yaxis().get_major_formatter().set_scientific(False)
+    
+    if args['--wav'] != None: convert = True
+
 
     for f in args['FILE']:
+        swset = False
+        sw = 0
+        if args['--wav']:
+            # Write signal to file
+            wavpath = dirname(realpath(f)) + '/' + splitext(basename(f))[0] + '.wav'
+            wavef = wave.open(wavpath,'w')
+            wavef.setnchannels(1) 
+            wavef.setframerate(float(args['--rate']))
+
         Y = []
         for n, line in enumerate(open(f, 'r')):
             if n > 0: # firstTI .dat line is irrelevant, skip it
-                
+                sf = ''
                 v = None
                 try:
                     hexstr = line[2:].split()
                     if args['--int16'] is True:
                         v = struct.unpack('!h', bytes.fromhex(hexstr[0]))
+                        sf = 'h'
+                        sw = 2
                     elif args['--uint16'] is True:
                         v = struct.unpack('!H', bytes.fromhex(hexstr[0]))
+                        sf = 'H'
+                        sw = 2
                     elif args['--int32'] is True:
                         v = struct.unpack('!l', bytes.fromhex(hexstr[0]))
+                        sf = 'i'
+                        sw = 4
                     elif args['--uint32'] is True:
                         v = struct.unpack('!L', bytes.fromhex(hexstr[0]))
+                        sf = 'I'
+                        sw = 4
                     elif args['--float'] is True:
                         v = struct.unpack('!f', bytes.fromhex(hexstr[0]))
+                        sf = 'f'
+                        sw = 4
                     elif args['--double'] is True:
                         v = struct.unpack('!d', bytes.fromhex(hexstr[0]))
+                        sf = 'd'
+                        sw = 8
                 except (TypeError, struct.error) as e:
                     print(str(e))
                     print("I'm having troubles understanding the file.\nTry changing the data format.") 
@@ -77,8 +114,27 @@ def main(args):
                 if (n-1-start) % step != 0:
                     continue
 
-                Y.append(v)
+                Y.append(v[0])
 
+        ymax = max(Y)
+        for y in Y:
+            if args['--wav']:
+                if swset == False:
+                    wavef.setsampwidth(sw)
+                    swset = True
+
+            value = y
+
+            # scale between -1.0 and 1.0 for float/double
+            if args['--float'] or args['--double']:
+                value = value / ymax
+
+            data = struct.pack('<' + sf, value)
+            wavef.writeframesraw( data )
+
+        if args['--wav']:
+            wavef.writeframes(b'')
+            wavef.close()
 
         X = range(len(Y)-1)
 

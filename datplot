@@ -3,7 +3,7 @@
 feature of the debugger.
 
 Usage:
-    datplot (--int16|--uint16|--int32|--uint32|--float|--double) FILE...
+    datplot (--int16|--uint16|--int32|--uint32|--float|--double) [--start=<START>] [--step=<STEP>] FILE...
     datplot (-v | --version)
     datplot (-h | --help)
 
@@ -16,6 +16,8 @@ Options:
     --uint32            Interpret data as 32-bit unsigned int.
     --float             Interpret data as 32-bit single precision floating point.
     --double            Interpret data as 64-bit double precision floating point.
+    --start=<START>     Start index [default: 0].
+    --step=<STEP>       Step index [default: 1].
 
 Example:
     datplot --double path/to/file
@@ -25,6 +27,7 @@ Example:
 import sys
 import struct
 from os.path import basename
+
 try:
     from docopt import docopt
 except ImportError:
@@ -37,7 +40,6 @@ except ImportError:
     exit("This software refuses to run until matplotlib is installed:\n$ pip install matplotlib")
 
 def main(args):
-    
     ax=plt.gca()
     ax.get_yaxis().get_major_formatter().set_scientific(False)
 
@@ -45,6 +47,7 @@ def main(args):
         Y = []
         for n, line in enumerate(open(f, 'r')):
             if n > 0: # firstTI .dat line is irrelevant, skip it
+                
                 v = None
                 try:
                     hexstr = line[2:].split()
@@ -65,6 +68,15 @@ def main(args):
                     print("I'm having troubles understanding the file.\nTry changing the data format.") 
                     return 0
 
+                start = int(args['--start'])
+                step = int(args['--step'])
+                # skip until specified start
+                if n-1 < start:
+                    continue
+
+                if (n-1-start) % step != 0:
+                    continue
+
                 Y.append(v)
 
 
@@ -73,7 +85,7 @@ def main(args):
         # due to what seems to be a matplotlib bug, this doesn't work
         # ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%x"))
 
-        plt.plot(Y, label=basename(f))
+        plt.plot(Y, label=basename(f), linestyle='-')
 
     plt.legend()
     plt.show()

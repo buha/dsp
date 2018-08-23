@@ -49,12 +49,46 @@ class sine:
         self.r = rate # samples per second
         self.t = np.arange(self.r * self.d) / self.r # time table based on duration and sampling rate
         self.__components = []
+        self.__transients = []
+        self.__noise = 0
 
     def fundamental(self):
         return self.a * np.sin(2.0 * np.pi * self.f * self.t + self.p)
 
     def component(self, amplitude, frequency, phase):
         self.__components.append({'amplitude': amplitude, 'frequency': frequency, 'phase': phase * np.pi / 180.0})
+
+    def noise(self, relative_amplitude):
+        self.__noise = relative_amplitude
+        if self.__noise > 1.0 or self.__noise < 0.0:
+            self.__noise = 0.0
+
+    def transient(self, ra, rt, t1, t2):
+        self.__transients.append({'ra': ra, 'rt': rt, 't1': t1, 't2': t2})
+
+    def gentransient(self, t, ra, rt, t1, t2):
+        A = ra * 32768
+        C = 1
+        Tth = rt * t[-1] # threshold time
+        T1 = Tth + t1 # end of rise marker
+        T2 = Tth + t1 + t2 # end of fall marker
+        Tth_T1 = np.linspace(0,5, int((T1 - Tth) * self.r + 1)).tolist() # linear range between 0...1 used for exponential computation
+        T1_T2 = np.linspace(0,5, int((T2 - T1) * self.r)).tolist()
+        transient = np.zeros(len(t))
+        try:
+            for n, T in enumerate(t):
+                if T <= Tth:
+                    pass
+                elif T <= T1:
+                    transient[n] = A *  (1 - np.exp(-Tth_T1.pop(0) / C)) # pop from the beginning
+                elif T <= T2:
+                    transient[n] = A * (1 - np.exp(-T1_T2.pop() / C)) # pop from the end (mirror exponential around y axis)
+                else:
+                    pass
+        except IndexError as E:
+            # print(str(E))
+            pass
+        return transient
 
     def components(self):
         return [c['amplitude'] * np.sin(2.0 * np.pi * c['frequency'] * self.t + c['phase']) for c in self.__components]
@@ -66,10 +100,26 @@ class sine:
         return self.t
 
     def wave(self):
+        
+        # fundamental
         wave = self.fundamental()
+
+        # sinusoid components
         for c in self.__components:
             component = c['amplitude'] * np.sin(2.0 * np.pi * c['frequency'] * self.t + c['phase'])
             wave = np.add(wave, component)
+
+        # transients
+        for t in self.__transients:
+            transient = self.gentransient(self.t, t['ra'], t['rt'], t['t1'], t['t2'])
+            wave = np.add(wave, transient)
+
+        # noise
+        if self.__noise > 0:
+            limit = self.__noise * 32768
+            noise = np.random.randint(-limit, limit, len(wave)) 
+            wave = np.add(wave, noise)
+
         return wave
 
     def rate(self):
@@ -79,8 +129,8 @@ def main(args):
     signal = sine(amplitude=5000, 
                   frequency=50, 
                   phase=90, 
-                  duration=2.0, 
-                  rate=31250)
+                  duration=1.0, 
+                  rate=100000)
 
     # Write signal to file
     wavef = wave.open(args['FILE'],'w')
@@ -88,10 +138,16 @@ def main(args):
     wavef.setsampwidth(2) 
     wavef.setframerate(signal.rate())
 
-    for f in range(5000, 11480, 25):
-        ph = 90 * random.randrange(0, 3, 2)
-        a = random.randrange(500, 800, 2)
-        signal.component(500, f, ph)
+    #for f in range(2000, 11480, 250):
+    #    ph = 90 * random.randrange(0, 3, 2)
+    #    a = random.randrange(500, 800, 2)
+    #    signal.component(500, f, ph)
+    signal.component(1000, 500, 0)
+
+    signal.noise(0.01)
+    signal.transient(0.1, 0.11, 0.0001, 0.0002)
+    signal.transient(0.4, 0.23, 0.0004, 0.0004)
+    signal.transient(0.2, 0.83, 0.0002, 0.0004)
 
     for sample in signal.wave():
         for channel in range(int(args['--channels'])):

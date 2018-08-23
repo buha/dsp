@@ -112,8 +112,12 @@ def main(args):
             
             peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/512)
 
-            # Scale attenuation relative to to fundamental power
-            s_db = s_dbfs - s_dbfs[peaks[0]]
+            try:
+                # Scale attenuation relative to to fundamental power
+                s_db = s_dbfs - s_dbfs[peaks[0]]
+            except IndexError:
+                # Couldn't find fundamental
+                s_db = s_dbfs
 
             ax1 = fig.add_subplot(111)
             ax1.plot(freq, s_db, label=args['FILE'][n] + ', channel ' + str(channel))

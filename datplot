@@ -3,7 +3,7 @@
 feature of the debugger.
 
 Usage:
-    datplot (--int16|--uint16|--int32|--uint32|--float|--double) [--start <START>] [--step <STEP>] [(--wav --rate <RATE>)] FILE...
+    datplot (--int16|--uint16|--int32|--uint32|--float|--double) [--start <START>] [--step <STEP>] [(--convert --rate <RATE>) --pcm] FILE...
     datplot (-v | --version)
     datplot (-h | --help)
 
@@ -18,8 +18,9 @@ Options:
     --double            Interpret data as 64-bit double precision floating point.
     --start <START>     Start index [default: 0].
     --step <STEP>       Step index [default: 1].
-    --wav               Do .wav conversion for further analysis with standard tools.
-    --rate <RATE>       Sampling rate.
+    --convert           Perform .wav conversion.
+    --rate <RATE>       Specify the .wav sampling rate.
+    --pcm               When converting to .wav, specify that we want PCM format. Floats in PCM range between -1.0...1.0.
 
 Example:
     # plot file by interpretting samples as double
@@ -30,10 +31,7 @@ Example:
 
     # plot file by interpretting samples as signed integers 16-bit wide
     # start at sample 0 with a step of 2 (discards samples 1, 3, ...)
- 
-    # plot file by interpretting samples as 32-bit float
-    # and create a path/to/file.wav containing the waveform
-    datplot --float path/to/file.dat --wav --rate 7812.5
+    datplot --int16 path/to/file --start=0 --step=2
 """
 
 import sys
@@ -52,22 +50,64 @@ try:
 except ImportError:
     exit("This software refuses to run until matplotlib is installed:\n$ pip install matplotlib")
 
+import numpy, scipy.optimize
+
+def wav_float(data, rate, wsize):
+    N = len(data)
+    byte_count = N * wsize
+    wav = b''
+    wav += struct.pack('<ccccIccccccccIHHIIHH',
+        b'R', b'I', b'F', b'F',
+        byte_count + 0x2c - 8,  # header size
+        b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ',
+        0x10,  # size of 'fmt ' header
+        3,  # format 3 = IEEE floating-point
+        1,  # channels
+        int(rate),  # samples / second
+        int(rate) * wsize,  # bytes / second
+        wsize,  # block alignment
+        8 * wsize)  # bits / sample
+    wav += struct.pack('<ccccI',
+        b'd', b'a', b't', b'a', byte_count)
+    for d in data:
+        wav += struct.pack('<f', d)
+    return wav
+
+
+def fit_sin(tt, yy):
+    '''Fit sin to the input time sequence, and return fitting parameters "amp", "omega", "phase", "offset", "freq", "period" and "fitfunc"'''
+    tt = numpy.array(tt)
+    yy = numpy.array(yy)
+    ff = numpy.fft.fftfreq(len(tt), (tt[1]-tt[0]))   # assume uniform spacing
+    Fyy = abs(numpy.fft.fft(yy))
+    guess_freq = abs(ff[numpy.argmax(Fyy[1:])+1])   # excluding the zero frequency "peak", which is related to offset
+    guess_amp = numpy.std(yy) * 2.**0.5
+    guess_offset = numpy.mean(yy)
+    guess = numpy.array([guess_amp, 2.*numpy.pi*guess_freq, 0., guess_offset])
+
+    def sinfunc(t, A, w, p, c):  return A * numpy.sin(w*t + p) + c
+    popt, pcov = scipy.optimize.curve_fit(sinfunc, tt, yy, p0=guess)
+    A, w, p, c = popt
+    f = w/(2.*numpy.pi)
+    fitfunc = lambda t: A * numpy.sin(w*t + p) + c
+    return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f, "period": 1./f, "fitfunc": fitfunc, "maxcov": numpy.max(pcov), "rawres": (guess,popt,pcov)}
+
 def main(args):
     ax=plt.gca()
     ax.get_yaxis().get_major_formatter().set_scientific(False)
     
-    if args['--wav'] != None: convert = True
-
+    if args['--convert'] != None: convert = True
 
     for f in args['FILE']:
         swset = False
         sw = 0
-        if args['--wav']:
+        if args['--convert']:
             # Write signal to file
+            sr = float(args['--rate'])
             wavpath = dirname(realpath(f)) + '/' + splitext(basename(f))[0] + '.wav'
             wavef = wave.open(wavpath,'w')
             wavef.setnchannels(1) 
-            wavef.setframerate(float(args['--rate']))
+            wavef.setframerate(sr)
 
         Y = []
         for n, line in enumerate(open(f, 'r')):
@@ -116,25 +156,40 @@ def main(args):
 
                 Y.append(v[0])
 
-        ymax = max(Y)
+        # find and remove the DC offset using sine curve fitting
+        tt = numpy.linspace(0, len(Y) - 1, len(Y)) # time vector, use (0, len(Y) / sr, len(Y)) instead if freq is relevant.
+        res = fit_sin(tt, Y) # curve fitting
+        # print("Amplitude=%(amp)s, Angular freq.=%(omega)s, phase=%(phase)s, offset=%(offset)s, Max. Cov.=%(maxcov)s" % res)
+        Y = [y - res['offset'] for y in Y] # DC offset removal
+
+        # scale between -1.0 and 1.0 for float/double
+        Yspan = max(abs(max(Y)), abs(min(Y)))
+        if args['--convert'] and args['--pcm'] and (args['--float'] or args['--double']):
+            Y = [y / Yspan for y in Y]
+
+        if args['--convert'] and (args['--float'] or args['--double']):
+            wavf = wav_float(Y, sr, int(sw))
+
         for y in Y:
-            if args['--wav']:
+            if args['--convert']:
                 if swset == False:
                     wavef.setsampwidth(sw)
                     swset = True
 
             value = y
 
-            # scale between -1.0 and 1.0 for float/double
-            if args['--float'] or args['--double']:
-                value = value / ymax
+            if args['--convert'] and (args['--float'] or args['--double']):
+                data = struct.pack('<' + sf, value)
+                wavef.writeframesraw(data)
 
-            data = struct.pack('<' + sf, value)
-            wavef.writeframesraw( data )
-
-        if args['--wav']:
+        if args['--convert']:
             wavef.writeframes(b'')
             wavef.close()
+
+            if args['--float']:
+                floatfile=open(wavpath + '.float', 'wb')
+                floatfile.write(wavf)
+                floatfile.close()
 
         X = range(len(Y)-1)
 

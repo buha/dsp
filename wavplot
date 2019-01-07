@@ -1,31 +1,92 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 import matplotlib.pyplot as plt
 import numpy as np
 import wave
 import sys
+import struct
 
-wavs = [wave.open(f, 'r') for f in sys.argv[1:]]
+def wav_file_read(filename):
+    fi=open(filename,'rb')
+    data=fi.read()
+    fi.close()
+    A, B, C, D    = struct.unpack('4c', data[0:4])      # 'RIFF'
+    ChunkSize     = struct.unpack('<l', data[4:8])[0]   #4+(8+SubChunk1Size)+8+SubChunk2Size)
+    A, B, C, D    = struct.unpack('4c', data[8:12])     # 'WAVE'
+    A, B, C, D    = struct.unpack('4c', data[12:16])    # 'fmt '
+    Subchunk1Size = struct.unpack('<l', data[16:20])[0] # LITTLE ENDIAN, long, 16
+    AudioFormat   = struct.unpack('<h', data[20:22])[0] # LITTLE ENDIAN, short, 1
+    NumChannels   = struct.unpack('<h', data[22:24])[0] # LITTLE ENDIAN, short, Mono = 1, Stereo = 2
+    SampleRate    = struct.unpack('<l', data[24:28])[0] # LITTLE ENDIAN, long,  sample rate in samples per second
+    ByteRate      = struct.unpack('<l', data[28:32])[0] # self.SampleRate * self.NumChannels * self.BitsPerSample/8)) # (ByteRate) LITTLE ENDIAN, long
+    BlockAlign    = struct.unpack('<h', data[32:34])[0] # self.NumChannels * self.BitsPerSample/8))  # (BlockAlign) LITTLE ENDIAN, short
+    BitsPerSample = struct.unpack('<h', data[34:36])[0] # LITTLE ENDIAN, short
+    A, B, C, D    = struct.unpack('4c', data[36:40])    # BIG ENDIAN, char*4
+    SubChunk2Size = struct.unpack('<l', data[40:44])[0] # LITTLE ENDIAN, long
+    waveData=data[44:]
 
-fig = plt.figure()
+    print("ChunkSize     =%d\nSubchunk1Size =%d\nAudioFormat   =%d\nNumChannels   =%d\nSampleRate    =%d\nByteRate      =%d\nBlockAlign    =%d\nBitsPerSample =%d\nSubChunk2Size =%d" %
+        (ChunkSize,
+        Subchunk1Size, 
+        AudioFormat,
+        NumChannels,
+        SampleRate,
+        ByteRate,
+        BlockAlign,
+        BitsPerSample,
+        SubChunk2Size))
 
-maxchannels = 0
-for n, wav in enumerate(wavs):
-    data = wav.readframes(-1)
-    signal = np.fromstring(data, 'Int16')
-    channels = wav.getnchannels()
-    framerate = wav.getframerate()
-    maxchannels = max(channels, maxchannels)
+
+    if BitsPerSample==8:
+        print("Unpacking %d bytes as 8 bits integers." % len(waveData))
+        d=np.frombuffer(waveData,np.uint8)
+        floatdata=d.astype(np.float64)/np.float(127)    
+    elif BitsPerSample==16:
+        print("Unpacking %d bytes as 16 bits integers." % len(waveData))
+        d=np.zeros(SubChunk2Size/2, dtype=np.int16)
+        j=0
+        for k in range(0, SubChunk2Size, 2):
+            d[j]=struct.unpack('<h',waveData[k:k+2])[0]
+            j=j+1
+        floatdata=d.astype(np.float64)/np.float(32767)    
+    elif BitsPerSample==24:
+        print("Unpacking %d bytes as 24 bits integer." % len(waveData))
+        d=np.zeros(SubChunk2Size/3,  dtype=np.int32)
+        j=0
+        for k in range(0, SubChunk2Size, 3):
+            d[j]=struct.unpack('<l',struct.pack('c',waveData[k])+waveData[k:k+3])[0]
+            j=j+1
+        floatdata=d.astype(np.float64)/np.float(2147483647)    
+    else: # anything else will be considered 32 bits
+        if AudioFormat == 1:
+            print("Unpacking %d bytes as 32 bits integer." % len(waveData))
+            d = np.frombuffer(waveData, np.int32)
+            floatdata = d.astype(np.float64) / np.float(2147483647)
+        elif AudioFormat == 3:
+            print("Unpacking %d bytes as 32 bits float." % len(waveData))
+            d = np.frombuffer(waveData, np.float32)
+            floatdata = d.astype(np.float64)
+
+    v=floatdata[0::NumChannels]
+    for i in range(1,NumChannels):
+        v=np.vstack((v,floatdata[i::NumChannels]))
+    return v, SampleRate, NumChannels, BitsPerSample
+
+if __name__ == "__main__":
+
+    signal, framerate, channels, BitsPerSample = wav_file_read(sys.argv[1])
+
+    fig = plt.figure()
 
     # before looping, create the ax object required by sharex, sharey
-    ax = fig.add_subplot(maxchannels, 1, 1)
+    ax = fig.add_subplot(channels, 1, 1)
 
     for channel in range(channels):
-        ax = fig.add_subplot(maxchannels, 1, channel+1, sharex=ax, sharey=ax)
-        ax.plot(signal[channel::channels], label=sys.argv[1+n] + ', channel ' + str(channel))
+        ax = fig.add_subplot(channels, 1, channel+1, sharex=ax, sharey=ax)
+        ax.plot(signal[channel::channels], label=sys.argv[1] + ', channel ' + str(channel))
         plt.ylabel('Amplitude')
         plt.xlabel('Sample')
 
-        plt.legend()
-    
+    plt.legend()
 
-plt.show()
+    plt.show()
+

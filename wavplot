@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import matplotlib.pyplot as plt
 import numpy as np
-import wave
 import sys
 import struct
 
@@ -24,7 +23,7 @@ def wav_file_read(filename):
     SubChunk2Size = struct.unpack('<l', data[40:44])[0] # LITTLE ENDIAN, long
     waveData=data[44:]
 
-    print("ChunkSize     =%d\nSubchunk1Size =%d\nAudioFormat   =%d\nNumChannels   =%d\nSampleRate    =%d\nByteRate      =%d\nBlockAlign    =%d\nBitsPerSample =%d\nSubChunk2Size =%d" %
+    print("ChunkSize     = %d\nSubchunk1Size = %d\nAudioFormat   = %d\nNumChannels   = %d\nSampleRate    = %d\nByteRate      = %d\nBlockAlign    = %d\nBitsPerSample = %d\nSubChunk2Size = %d" %
         (ChunkSize,
         Subchunk1Size, 
         AudioFormat,
@@ -36,39 +35,34 @@ def wav_file_read(filename):
         SubChunk2Size))
 
 
-    if BitsPerSample==8:
+    if BitsPerSample == 8:
         print("Unpacking %d bytes as 8 bits integers." % len(waveData))
-        d=np.frombuffer(waveData,np.uint8)
-        floatdata=d.astype(np.float64)/np.float(127)    
-    elif BitsPerSample==16:
+        d = np.frombuffer(waveData, np.uint8)
+    elif BitsPerSample == 16:
         print("Unpacking %d bytes as 16 bits integers." % len(waveData))
-        d=np.zeros(SubChunk2Size/2, dtype=np.int16)
-        j=0
+        d = np.zeros(int(SubChunk2Size / 2), dtype=np.int16)
+        j = 0
         for k in range(0, SubChunk2Size, 2):
-            d[j]=struct.unpack('<h',waveData[k:k+2])[0]
-            j=j+1
-        floatdata=d.astype(np.float64)/np.float(32767)    
-    elif BitsPerSample==24:
+            d[j] = struct.unpack('<h', waveData[k:k+2])[0]
+            j = j+1
+    elif BitsPerSample == 24:
         print("Unpacking %d bytes as 24 bits integer." % len(waveData))
-        d=np.zeros(SubChunk2Size/3,  dtype=np.int32)
-        j=0
+        d = np.zeros(SubChunk2Size/3,  dtype=np.int32)
+        j = 0
         for k in range(0, SubChunk2Size, 3):
-            d[j]=struct.unpack('<l',struct.pack('c',waveData[k])+waveData[k:k+3])[0]
-            j=j+1
-        floatdata=d.astype(np.float64)/np.float(2147483647)    
+            d[j] = struct.unpack('<l', struct.pack('c', waveData[k]) + waveData[k:k+3])[0]
+            j = j+1
     else: # anything else will be considered 32 bits
         if AudioFormat == 1:
             print("Unpacking %d bytes as 32 bits integer." % len(waveData))
             d = np.frombuffer(waveData, np.int32)
-            floatdata = d.astype(np.float64) / np.float(2147483647)
         elif AudioFormat == 3:
             print("Unpacking %d bytes as 32 bits float." % len(waveData))
             d = np.frombuffer(waveData, np.float32)
-            floatdata = d.astype(np.float64)
 
-    v=floatdata[0::NumChannels]
+    v = d[0::NumChannels]
     for i in range(1,NumChannels):
-        v=np.vstack((v,floatdata[i::NumChannels]))
+        v = np.vstack((v, floatdata[i::NumChannels]))
     return v, SampleRate, NumChannels, BitsPerSample
 
 if __name__ == "__main__":

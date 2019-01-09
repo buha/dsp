@@ -52,7 +52,7 @@ except ImportError:
 
 import numpy, scipy.optimize
 
-def wav_float(data, rate, wsize):
+def wav_float(data, rate, wsize, sf):
     N = len(data)
     byte_count = N * wsize
     wav = b''
@@ -70,7 +70,28 @@ def wav_float(data, rate, wsize):
     wav += struct.pack('<ccccI',
         b'd', b'a', b't', b'a', byte_count)
     for d in data:
-        wav += struct.pack('<f', d)
+        wav += struct.pack(sf, d)
+    return wav
+
+def wav_int(data, rate, wsize, sf):
+    N = len(data)
+    byte_count = N * wsize
+    wav = b''
+    wav += struct.pack('<ccccIccccccccIHHIIHH',
+        b'R', b'I', b'F', b'F',
+        byte_count + 0x2c - 8,  # header size
+        b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ',
+        0x10,  # size of 'fmt ' header
+        1,  # format 1 = PCM
+        1,  # channels
+        int(rate),  # samples / second
+        int(rate) * wsize,  # bytes / second
+        wsize,  # block alignment
+        8 * wsize)  # bits / sample
+    wav += struct.pack('<ccccI',
+        b'd', b'a', b't', b'a', byte_count)
+    for d in data:
+        wav += struct.pack(sf, int(d))
     return wav
 
 
@@ -105,9 +126,6 @@ def main(args):
             # Write signal to file
             sr = float(args['--rate'])
             wavpath = dirname(realpath(f)) + '/' + splitext(basename(f))[0] + '.wav'
-            wavef = wave.open(wavpath,'w')
-            wavef.setnchannels(1) 
-            wavef.setframerate(sr)
 
         Y = []
         for n, line in enumerate(open(f, 'r')):
@@ -167,29 +185,15 @@ def main(args):
         if args['--convert'] and args['--pcm'] and (args['--float'] or args['--double']):
             Y = [y / Yspan for y in Y]
 
-        if args['--convert'] and (args['--float'] or args['--double']):
-            wavf = wav_float(Y, sr, int(sw))
-
-        for y in Y:
-            if args['--convert']:
-                if swset == False:
-                    wavef.setsampwidth(sw)
-                    swset = True
-
-            value = y
-
-            if args['--convert'] and (args['--float'] or args['--double']):
-                data = struct.pack('<' + sf, value)
-                wavef.writeframesraw(data)
-
         if args['--convert']:
-            wavef.writeframes(b'')
-            wavef.close()
+            if args['--float'] or args['--double']:
+                wavcontent = wav_float(Y, sr, int(sw), sf)
+            else:
+                wavcontent = wav_int(Y, sr, int(sw), sf)
 
-            if args['--float']:
-                floatfile=open(wavpath + '.float', 'wb')
-                floatfile.write(wavf)
-                floatfile.close()
+            wavf=open(wavpath, 'wb')
+            wavf.write(wavcontent)
+            wavf.close()
 
         X = range(len(Y)-1)
 

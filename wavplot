@@ -23,8 +23,9 @@ def wav_file_read(filename):
     SubChunk2Size = struct.unpack('<l', data[40:44])[0] # LITTLE ENDIAN, long
     waveData=data[44:]
 
-    print("ChunkSize     = %d\nSubchunk1Size = %d\nAudioFormat   = %d\nNumChannels   = %d\nSampleRate    = %d\nByteRate      = %d\nBlockAlign    = %d\nBitsPerSample = %d\nSubChunk2Size = %d" %
-        (ChunkSize,
+    print("%s\n\tChunkSize     = %d\n\tSubchunk1Size = %d\n\tAudioFormat   = %d\n\tNumChannels   = %d\n\tSampleRate    = %d\n\tByteRate      = %d\n\tBlockAlign    = %d\n\tBitsPerSample = %d\n\tSubChunk2Size = %d" %
+        (filename,
+        ChunkSize,
         Subchunk1Size, 
         AudioFormat,
         NumChannels,
@@ -67,20 +68,25 @@ def wav_file_read(filename):
 
 if __name__ == "__main__":
 
-    signal, framerate, channels, BitsPerSample = wav_file_read(sys.argv[1])
+    maxchannels = 0
+    for n, f in enumerate(sys.argv[1:]):
 
-    fig = plt.figure()
+        fig = plt.figure()
 
-    # before looping, create the ax object required by sharex, sharey
-    ax = fig.add_subplot(channels, 1, 1)
+        signal, framerate, channels, BitsPerSample = wav_file_read(f)
 
-    for channel in range(channels):
-        ax = fig.add_subplot(channels, 1, channel+1, sharex=ax, sharey=ax)
-        ax.plot(signal[channel::channels], label=sys.argv[1] + ', channel ' + str(channel))
-        plt.ylabel('Amplitude')
-        plt.xlabel('Sample')
+        maxchannels = max(channels, maxchannels)
 
-    plt.legend()
+        # before looping, create the ax object required by sharex, sharey
+        ax = fig.add_subplot(maxchannels, 1, 1)
+
+        for channel in range(channels):
+            ax = fig.add_subplot(maxchannels, 1, channel+1, sharex=ax, sharey=ax)
+            ax.plot(signal[channel::channels], label=sys.argv[1+n] + ', channel ' + str(channel))
+            plt.ylabel('Amplitude')
+            plt.xlabel('Sample')
+
+        plt.legend()
 
     plt.show()
 

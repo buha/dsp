@@ -36,8 +36,8 @@ Example:
 
 import sys
 import struct
-import wave
 from os.path import basename, dirname, realpath, splitext
+from wavhelp import *
 
 try:
     from docopt import docopt
@@ -50,49 +50,15 @@ try:
 except ImportError:
     exit("This software refuses to run until matplotlib is installed:\n$ pip install matplotlib")
 
-import numpy, scipy.optimize
+try:
+    import numpy
+except ImportError:
+    exit("This software refuses to run until numpy is installed:\n$ pip install numpy")
 
-def wav_float(data, rate, wsize, sf):
-    N = len(data)
-    byte_count = N * wsize
-    wav = b''
-    wav += struct.pack('<ccccIccccccccIHHIIHH',
-        b'R', b'I', b'F', b'F',
-        byte_count + 0x2c - 8,  # header size
-        b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ',
-        0x10,  # size of 'fmt ' header
-        3,  # format 3 = IEEE floating-point
-        1,  # channels
-        int(rate),  # samples / second
-        int(rate) * wsize,  # bytes / second
-        wsize,  # block alignment
-        8 * wsize)  # bits / sample
-    wav += struct.pack('<ccccI',
-        b'd', b'a', b't', b'a', byte_count)
-    for d in data:
-        wav += struct.pack(sf, d)
-    return wav
-
-def wav_int(data, rate, wsize, sf):
-    N = len(data)
-    byte_count = N * wsize
-    wav = b''
-    wav += struct.pack('<ccccIccccccccIHHIIHH',
-        b'R', b'I', b'F', b'F',
-        byte_count + 0x2c - 8,  # header size
-        b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ',
-        0x10,  # size of 'fmt ' header
-        1,  # format 1 = PCM
-        1,  # channels
-        int(rate),  # samples / second
-        int(rate) * wsize,  # bytes / second
-        wsize,  # block alignment
-        8 * wsize)  # bits / sample
-    wav += struct.pack('<ccccI',
-        b'd', b'a', b't', b'a', byte_count)
-    for d in data:
-        wav += struct.pack(sf, int(d))
-    return wav
+try:
+    import scipy.optimize
+except ImportError:
+    exit("This software refuses to run until scipy is installed:\n$ pip install scipy")
 
 
 def fit_sin(tt, yy):

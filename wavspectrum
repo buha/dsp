@@ -22,6 +22,7 @@ Example:
 """
 
 import sys
+from math import ceil
 from wavhelp import *
 
 try:
@@ -68,7 +69,7 @@ def dbfft(x, rate, win=None, ref=32768):
 
     # Calculate real FFT and frequency vector
     sp = np.fft.rfft(x)
-    freq = np.arange((N / 2) + 1) / (float(N) / rate)
+    freq = np.arange(len(sp)) / (float(N) / rate)
 
     # Scale the magnitude of FFT by window and factor of 2,
     # because we are using half of FFT spectrum.

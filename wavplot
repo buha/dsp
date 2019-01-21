@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
         fig = plt.figure()
 
-        signal, framerate, channels, BitsPerSample = wav_read(f)
+        signal, framerate, channels, BitsPerSample = wav_read(f, True)
 
         maxchannels = max(channels, maxchannels)
 

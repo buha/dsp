@@ -43,7 +43,7 @@ def wav_write_int(data, rate, wsize, sf):
         wav += struct.pack(sf, int(d))
     return wav
 
-def wav_read(filename):
+def wav_read(filename, verbose=False):
     fi=open(filename,'rb')
     data=fi.read()
     fi.close()
@@ -61,7 +61,7 @@ def wav_read(filename):
     A, B, C, D    = struct.unpack('4c', data[36:40])    # BIG ENDIAN, char*4
     SubChunk2Size = struct.unpack('<l', data[40:44])[0] # LITTLE ENDIAN, long
     waveData=data[44:]
-    """
+    
     print("%s\n\tChunkSize     = %d\n\tSubchunk1Size = %d\n\tAudioFormat   = %d\n\tNumChannels   = %d\n\tSampleRate    = %d\n\tByteRate      = %d\n\tBlockAlign    = %d\n\tBitsPerSample = %d\n\tSubChunk2Size = %d" %
         (filename,
         ChunkSize,
@@ -72,21 +72,20 @@ def wav_read(filename):
         ByteRate,
         BlockAlign,
         BitsPerSample,
-        SubChunk2Size))
-    """
+        SubChunk2Size)) if verbose else 0
 
     if BitsPerSample == 8:
-        print("{}: Unpacking {} bytes as 8 bits integer.".format(filename, len(waveData)))
+        print("{}: Unpacking {} bytes as 8 bits integer.".format(filename, len(waveData))) if verbose else 0
         d = np.frombuffer(waveData, np.uint8)
     elif BitsPerSample == 16:
-        print("{}: Unpacking {} bytes as 16 bits integer.".format(filename, len(waveData)))
+        print("{}: Unpacking {} bytes as 16 bits integer.".format(filename, len(waveData))) if verbose else 0
         d = np.zeros(int(SubChunk2Size / 2), dtype=np.int16)
         j = 0
         for k in range(0, SubChunk2Size, 2):
             d[j] = struct.unpack('<h', waveData[k:k+2])[0]
             j = j+1
     elif BitsPerSample == 24:
-        print("{}: Unpacking {} bytes as 24 bits integer.".format(filename, len(waveData)))
+        print("{}: Unpacking {} bytes as 24 bits integer.".format(filename, len(waveData))) if verbose else 0
         d = np.zeros(SubChunk2Size/3,  dtype=np.int32)
         j = 0
         for k in range(0, SubChunk2Size, 3):
@@ -94,10 +93,10 @@ def wav_read(filename):
             j = j+1
     else: # anything else will be considered 32 bits
         if AudioFormat == 1:
-            print("{}: Unpacking {} bytes as 32 bits integer.".format(filename, len(waveData)))
+            print("{}: Unpacking {} bytes as 32 bits integer.".format(filename, len(waveData))) if verbose else 0
             d = np.frombuffer(waveData, np.int32)
         elif AudioFormat == 3:
-            print("{}: Unpacking {} bytes as 32 bits float.".format(filename, len(waveData)))
+            print("{}: Unpacking {} bytes as 32 bits float.".format(filename, len(waveData))) if verbose else 0
             d = np.frombuffer(waveData, np.float32)
 
     v = d[0::NumChannels]

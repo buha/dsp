@@ -22,7 +22,7 @@ Example:
 """
 
 import sys
-import wave
+from wavhelp import *
 
 try:
     from docopt import docopt
@@ -88,14 +88,9 @@ def main(args):
     fig = plt.figure()
     fig.canvas.set_window_title(sys.argv[0])
 
-    # Load the files
-    wavs = [wave.open(f) for f in args['FILE']]
+    for n, f in enumerate(args['FILE']):
 
-    for n, wav in enumerate(wavs):
-        data = wav.readframes(-1)
-        signal = np.fromstring(data, 'Int16')
-        channels = wav.getnchannels()
-        framerate = wav.getframerate()
+        signal, framerate, channels, BitsPerSample = wav_read(f)
 
         for channel in range(channels):
             # Take slice
@@ -110,7 +105,7 @@ def main(args):
             else:
                 freq, s_dbfs = dbfft(signal[channel::channels][0:N], framerate)
             
-            peaks = peakutils.indexes(s_dbfs, thres=0.6, min_dist=N/512)
+            peaks = peakutils.indexes(s_dbfs, thres=0.9, min_dist=N/512)
 
             try:
                 # Scale attenuation relative to to fundamental power
@@ -128,7 +123,7 @@ def main(args):
                     # This clogs up the interface when plotting multiple files with multiple channels.
                     # ax1.axvline(freq[peak], color='coral', linestyle=':', linewidth=1)
                     # ax1.axhline(s_db[peak], color='coral', linestyle=':', linewidth=1)
-                    plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB")
+                    plt.text(freq[peak], s_db[peak], str(roundpeak) + " Hz, " + str(round(s_db[peak], 1)) + "dB", rotation=80)
 
     ax1.axhline(-40, color='slategray', linestyle='-.', linewidth=1)
     plt.xlabel('Frequency [Hz]')

@@ -153,9 +153,9 @@ def main(args):
 
         if args['--convert']:
             if args['--float'] or args['--double']:
-                wavcontent = wav_float(Y, sr, int(sw), sf)
+                wavcontent = wav_write_float(Y, sr, int(sw), sf)
             else:
-                wavcontent = wav_int(Y, sr, int(sw), sf)
+                wavcontent = wav_write_int(Y, sr, int(sw), sf)
 
             wavf=open(wavpath, 'wb')
             wavf.write(wavcontent)
